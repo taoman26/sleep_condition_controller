@@ -28,7 +28,7 @@ try:
     
 except Exception as e:
     # syslogに接続できない場合は標準出力のみに出力
-    print(f"システムログへの接続に失敗しました: {str(e)}")
+    print("システムログへの接続に失敗しました: {}".format(str(e)))
     print("標準出力のみにログを出力します")
     
     logging.basicConfig(
@@ -76,7 +76,7 @@ def get_ambient_data():
         else:
             logger.error("Ambientからのデータが空です")
     except Exception as e:
-        logger.error(f"データ取得中にエラーが発生しました: {str(e)}")
+        logger.error("データ取得中にエラーが発生しました: {}".format(str(e)))
     
     return None
 
@@ -93,21 +93,21 @@ def control_aircon(action):
         else:
             action_name = "不明"
         
-        command = f'"{BROADLINK_CLI_PATH}" --device @"{EREMOTE_DEVICE_INFO}" --send @"{action}"'
+        command = '"{}" --device @"{}" --send @"{}"'.format(BROADLINK_CLI_PATH, EREMOTE_DEVICE_INFO, action)
         
-        logger.info(f"エアコン制御コマンドを実行: {command}")
-        logger.info(f"エアコンを{action_name}にします")
+        logger.info("エアコン制御コマンドを実行: {}".format(command))
+        logger.info("エアコンを{}にします".format(action_name))
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         
         if result.returncode == 0:
-            logger.info(f"エアコン制御({action_name})に成功しました")
+            logger.info("エアコン制御({})に成功しました".format(action_name))
             return True
         else:
-            logger.error(f"エアコン制御({action_name})に失敗しました: {result.stderr}")
+            logger.error("エアコン制御({})に失敗しました: {}".format(action_name, result.stderr))
             return False
     
     except Exception as e:
-        logger.error(f"エアコン制御中にエラーが発生しました: {str(e)}")
+        logger.error("エアコン制御中にエラーが発生しました: {}".format(str(e)))
         return False
 
 def check_and_control():
@@ -120,11 +120,11 @@ def check_and_control():
         logger.warning("温度データが取得できませんでした")
         return
     
-    logger.info(f"取得したデータ - 温度: {temperature}℃")
+    logger.info("取得したデータ - 温度: {}℃".format(temperature))
     
     # 閾値を超えているか確認
     if temperature >= TEMPERATURE_THRESHOLD:
-        logger.info(f"閾値を超えました - 温度: {temperature}℃ (閾値: {TEMPERATURE_THRESHOLD}℃)")
+        logger.info("閾値を超えました - 温度: {}℃ (閾値: {}℃)".format(temperature, TEMPERATURE_THRESHOLD))
         # エアコンを起動
         if control_aircon(AIRCON_START_IRCODE):
             # last_alert_timeを現在の時間に更新
@@ -142,7 +142,7 @@ def get_last_alert_time():
                 return float(f.read().strip())
         return 0
     except Exception as e:
-        logger.error(f"前回のアラート時間の読み込みに失敗しました: {str(e)}")
+        logger.error("前回のアラート時間の読み込みに失敗しました: {}".format(str(e)))
         return 0
 
 def save_last_alert_time(timestamp):
@@ -152,9 +152,9 @@ def save_last_alert_time(timestamp):
     try:
         with open(LAST_ALERT_TIME_FILE, 'w') as f:
             f.write(str(timestamp))
-        logger.info(f"アラート時間を保存しました: {datetime.fromtimestamp(timestamp)}")
+        logger.info("アラート時間を保存しました: {}".format(datetime.fromtimestamp(timestamp)))
     except Exception as e:
-        logger.error(f"アラート時間の保存に失敗しました: {str(e)}")
+        logger.error("アラート時間の保存に失敗しました: {}".format(str(e)))
 
 def clear_last_alert_time():
     """
@@ -165,7 +165,7 @@ def clear_last_alert_time():
             os.remove(LAST_ALERT_TIME_FILE)
             logger.info("アラート時間をクリアしました")
     except Exception as e:
-        logger.error(f"アラート時間のクリアに失敗しました: {str(e)}")
+        logger.error("アラート時間のクリアに失敗しました: {}".format(str(e)))
 
 def check_settings():
     """
@@ -192,14 +192,14 @@ def check_settings():
                 logger.info("設定ファイル確認: プログラムの実行が無効です")
                 return False
             else:
-                logger.warning(f"設定ファイルの値が不正です: {run_value}. デフォルトで実行します")
+                logger.warning("設定ファイルの値が不正です: {}. デフォルトで実行します".format(run_value))
                 return True
         else:
             logger.warning("設定ファイルに必要なセクション/オプションが見つかりません。デフォルトで実行します")
             return True
             
     except Exception as e:
-        logger.error(f"設定ファイルの読み込み中にエラーが発生しました: {str(e)}")
+        logger.error("設定ファイルの読み込み中にエラーが発生しました: {}".format(str(e)))
         logger.info("デフォルトで実行します")
         return True
 
@@ -225,17 +225,17 @@ def get_force_stop_hour():
                 if 0 <= hour <= 23:
                     return hour
                 else:
-                    logger.warning(f"強制終了時間が範囲外です: {hour}. デフォルト値（9時）を使用します")
+                    logger.warning("強制終了時間が範囲外です: {}. デフォルト値（9時）を使用します".format(hour))
                     return 9
             except ValueError:
-                logger.warning(f"強制終了時間の値が不正です: {hour_value}. デフォルト値（9時）を使用します")
+                logger.warning("強制終了時間の値が不正です: {}. デフォルト値（9時）を使用します".format(hour_value))
                 return 9
         else:
             logger.info("強制終了時間が設定されていません。デフォルト値（9時）を使用します")
             return 9
             
     except Exception as e:
-        logger.error(f"強制終了時間の読み込み中にエラーが発生しました: {str(e)}")
+        logger.error("強制終了時間の読み込み中にエラーが発生しました: {}".format(str(e)))
         logger.info("デフォルト値（9時）を使用します")
         return 9
 
@@ -268,7 +268,7 @@ def main():
         
         # 強制終了時間の場合は強制的にエアコンを停止
         if current_hour == force_stop_hour and last_alert_time > 0:
-            logger.info(f"強制終了時間({force_stop_hour}時)になりました。エアコンを強制停止します")
+            logger.info("強制終了時間({}時)になりました。エアコンを強制停止します".format(force_stop_hour))
             clear_last_alert_time()
             control_aircon(AIRCON_STOP_IRCODE)
             logger.info("プログラムが正常に終了しました")
@@ -281,14 +281,14 @@ def main():
         else:
             # last_alert_timeが空でない場合
             last_time_str = datetime.fromtimestamp(last_alert_time).strftime('%Y-%m-%d %H:%M:%S')
-            logger.info(f"前回のアラート時間: {last_time_str}")
+            logger.info("前回のアラート時間: {}".format(last_time_str))
             
             # 前回のアラートからの経過時間を確認
             elapsed_time = current_time - last_alert_time
             
             if elapsed_time >= CHECK_INTERVAL:
                 # チェック間隔を超えている場合
-                logger.info(f"前回のアラートから{elapsed_time/60:.1f}分経過しました。エアコンを停止します")
+                logger.info("前回のアラートから{:.1f}分経過しました。エアコンを停止します".format(elapsed_time/60))
                 
                 # last_alert_timeをクリア
                 clear_last_alert_time()
@@ -298,11 +298,11 @@ def main():
             else:
                 # チェック間隔内の場合
                 remaining_time = CHECK_INTERVAL - elapsed_time
-                logger.info(f"前回のアラートから{elapsed_time/60:.1f}分経過。次回チェックまで{remaining_time/60:.1f}分")
+                logger.info("前回のアラートから{:.1f}分経過。次回チェックまで{:.1f}分".format(elapsed_time/60, remaining_time/60))
         
         logger.info("プログラムが正常に終了しました")
     except Exception as e:
-        logger.error(f"予期せぬエラーが発生しました: {str(e)}")
+        logger.error("予期せぬエラーが発生しました: {}".format(str(e)))
 
 if __name__ == "__main__":
     main()
