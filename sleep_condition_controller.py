@@ -120,11 +120,14 @@ def check_and_control():
         logger.warning("温度データが取得できませんでした")
         return
     
+    # settings.iniから温度閾値を取得
+    temperature_threshold = get_temperature_threshold()
+    
     logger.info("取得したデータ - 温度: {}℃".format(temperature))
     
     # 閾値を超えているか確認
-    if temperature >= TEMPERATURE_THRESHOLD:
-        logger.info("閾値を超えました - 温度: {}℃ (閾値: {}℃)".format(temperature, TEMPERATURE_THRESHOLD))
+    if temperature >= temperature_threshold:
+        logger.info("閾値を超えました - 温度: {}℃ (閾値: {}℃)".format(temperature, temperature_threshold))
         # エアコンを起動
         if control_aircon(AIRCON_START_IRCODE):
             # last_alert_timeを現在の時間に更新
@@ -239,6 +242,78 @@ def get_force_stop_hour():
         logger.info("デフォルト値（9時）を使用します")
         return 9
 
+def get_temperature_threshold():
+    """
+    settings.iniファイルから温度閾値を取得する関数
+    """
+    try:
+        config = configparser.ConfigParser()
+        
+        # settings.iniファイルが存在しない場合はデフォルト値（34.0℃）
+        if not os.path.exists(SETTINGS_FILE):
+            return 34.0
+        
+        # 設定ファイルを読み込み
+        config.read(SETTINGS_FILE)
+        
+        # temperatureセクションのthresholdパラメータを確認
+        if config.has_section('temperature') and config.has_option('temperature', 'threshold'):
+            threshold_value = config.get('temperature', 'threshold')
+            try:
+                threshold = float(threshold_value)
+                if threshold > 0:
+                    return threshold
+                else:
+                    logger.warning("温度閾値が不正です: {}. デフォルト値（34.0℃）を使用します".format(threshold))
+                    return 34.0
+            except ValueError:
+                logger.warning("温度閾値の値が不正です: {}. デフォルト値（34.0℃）を使用します".format(threshold_value))
+                return 34.0
+        else:
+            logger.info("温度閾値が設定されていません。デフォルト値（34.0℃）を使用します")
+            return 34.0
+            
+    except Exception as e:
+        logger.error("温度閾値の読み込み中にエラーが発生しました: {}".format(str(e)))
+        logger.info("デフォルト値（34.0℃）を使用します")
+        return 34.0
+
+def get_check_interval():
+    """
+    settings.iniファイルからチェック間隔を取得する関数
+    """
+    try:
+        config = configparser.ConfigParser()
+        
+        # settings.iniファイルが存在しない場合はデフォルト値（1800秒 = 30分）
+        if not os.path.exists(SETTINGS_FILE):
+            return 1800
+        
+        # 設定ファイルを読み込み
+        config.read(SETTINGS_FILE)
+        
+        # intervalsセクションのcheck_intervalパラメータを確認
+        if config.has_section('intervals') and config.has_option('intervals', 'check_interval'):
+            interval_value = config.get('intervals', 'check_interval')
+            try:
+                interval = int(interval_value)
+                if interval > 0:
+                    return interval
+                else:
+                    logger.warning("チェック間隔が不正です: {}. デフォルト値（1800秒）を使用します".format(interval))
+                    return 1800
+            except ValueError:
+                logger.warning("チェック間隔の値が不正です: {}. デフォルト値（1800秒）を使用します".format(interval_value))
+                return 1800
+        else:
+            logger.info("チェック間隔が設定されていません。デフォルト値（1800秒）を使用します")
+            return 1800
+            
+    except Exception as e:
+        logger.error("チェック間隔の読み込み中にエラーが発生しました: {}".format(str(e)))
+        logger.info("デフォルト値（1800秒）を使用します")
+        return 1800
+
 def main():
     """
     メイン関数
@@ -263,6 +338,9 @@ def main():
         # 強制終了時間を取得
         force_stop_hour = get_force_stop_hour()
         
+        # settings.iniからチェック間隔を取得
+        check_interval = get_check_interval()
+        
         # last_alert_timeの状態を確認
         last_alert_time = get_last_alert_time()
         
@@ -286,7 +364,7 @@ def main():
             # 前回のアラートからの経過時間を確認
             elapsed_time = current_time - last_alert_time
             
-            if elapsed_time >= CHECK_INTERVAL:
+            if elapsed_time >= check_interval:
                 # チェック間隔を超えている場合
                 logger.info("前回のアラートから{:.1f}分経過しました。エアコンを停止します".format(elapsed_time/60))
                 
@@ -297,7 +375,7 @@ def main():
                 control_aircon(AIRCON_STOP_IRCODE)
             else:
                 # チェック間隔内の場合
-                remaining_time = CHECK_INTERVAL - elapsed_time
+                remaining_time = check_interval - elapsed_time
                 logger.info("前回のアラートから{:.1f}分経過。次回チェックまで{:.1f}分".format(elapsed_time/60, remaining_time/60))
         
         logger.info("プログラムが正常に終了しました")

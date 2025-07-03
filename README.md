@@ -64,8 +64,10 @@ AMBIENT_READ_KEY = "your_read_key"        # Ambientリードキー
 ```
 
 ### 2. 温度閾値設定
-```python
-TEMPERATURE_THRESHOLD = 34.0  # 温度閾値（℃）
+settings.iniファイルで設定します：
+```ini
+[temperature]
+threshold = 34.0  # 温度閾値（℃）
 ```
 
 ### 3. broadlink_cli設定
@@ -77,8 +79,10 @@ AIRCON_STOP_IRCODE = "/path/to/aircon_stop.ir"           # エアコン停止IR�
 ```
 
 ### 4. チェック間隔設定
-```python
-CHECK_INTERVAL = 1800  # 30分（秒単位）
+settings.iniファイルで設定します：
+```ini
+[intervals]
+check_interval = 1800  # 30分（秒単位）
 ```
 
 ### 5. 実行制御設定
@@ -134,6 +138,16 @@ run = 1
 # 強制終了時間（24時間制）
 # エアコンが稼動中の場合、この時間になったら強制的に停止する
 force_stop_hour = 9
+
+[temperature]
+# 温度閾値（℃）
+# この温度を超えた場合にエアコンを起動します
+threshold = 34.0
+
+[intervals]
+# チェック間隔（秒）
+# エアコン稼動時に次のチェックまでの間隔
+check_interval = 1800
 ```
 
 ## 使用方法
