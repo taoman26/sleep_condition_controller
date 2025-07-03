@@ -43,17 +43,11 @@ AMBIENT_CHANNEL_ID = ""  # ここにあなたのAmbientのチャネルIDを設�
 AMBIENT_WRITE_KEY = ""   # ここにあなたのAmbientのライトキーを設定
 AMBIENT_READ_KEY = ""    # ここにあなたのAmbientのリードキーを設定
 
-# 温度閾値
-TEMPERATURE_THRESHOLD = 34.0  # 温度閾値（℃）
-
 # broadlink_cli設定
 BROADLINK_CLI_PATH = "/usr/local/bin/broadlink_cli"  # broadlink_cliのフルパス
 EREMOTE_DEVICE_INFO = "/path/to/eremote_device_info"  # eRemoteデバイス情報のパス
 AIRCON_START_IRCODE = "/path/to/aircon_start.ir"  # エアコン起動IRコードのパス
 AIRCON_STOP_IRCODE = "/path/to/aircon_stop.ir"    # エアコン停止IRコードのパス
-
-# チェック間隔（秒）- エアコン稼動時には30分ごとにチェック
-CHECK_INTERVAL = 1800  # 30分（秒単位）
 
 # 最後のアラート時間を保存するファイルパス
 LAST_ALERT_TIME_FILE = "/tmp/sleep_condition_last_time.txt"
