@@ -41,7 +41,7 @@
 ## 必要な環境
 
 ### システム要件
-- Python 3.x
+- Python 3.5.3以降（Python 3.5.3〜3.12で動作確認済み）
 - Linux環境（syslog対応）
 
 ### Pythonライブラリ
@@ -266,13 +266,32 @@ sleep_condition_controller/
 - コンソール出力でリアルタイムログを確認
 - 手動実行でエラー内容を確認
 
+## Python バージョン互換性
+
+このプログラムは **Python 3.5.3以降** で動作します。
+
+### サポート対象
+- **Python 3.5.3〜3.12**: 完全サポート
+- **推奨バージョン**: Python 3.8以降（セキュリティサポート継続中）
+
+### 使用している機能とバージョン要件
+- `subprocess.run()`: Python 3.5以降
+- `.format()` 文字列フォーマット: Python 3.0以降
+- `configparser`: Python 3.0以降（標準ライブラリ）
+- その他の標準ライブラリ: すべて古いバージョンから利用可能
+
+### 注意事項
+- f-string (`f"文字列 {変数}"`) は使用していないため、Python 3.5.3でも動作
+- `capture_output`パラメータは使用せず、`stdout=subprocess.PIPE`を使用
+- `text`パラメータは使用せず、`universal_newlines=True`を使用
+
 ## ライセンス
 
 MIT License
 
 ## 作者
 
-作成者名
+Michihiko Mikami
 
 ## 更新履歴
 
