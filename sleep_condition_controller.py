@@ -93,11 +93,11 @@ def control_aircon(action):
         else:
             action_name = "不明"
         
-        command = '"{}" --device @"{}" --send @"{}"'.format(BROADLINK_CLI_PATH, EREMOTE_DEVICE_INFO, action)
+        command = '{} --device @{} --send @{}'.format(BROADLINK_CLI_PATH, EREMOTE_DEVICE_INFO, action)
         
         logger.info("エアコン制御コマンドを実行: {}".format(command))
         logger.info("エアコンを{}にします".format(action_name))
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        result = subprocess.run(command, shell=True, capture_output=True, universal_newlines=True)
         
         if result.returncode == 0:
             logger.info("エアコン制御({})に成功しました".format(action_name))
