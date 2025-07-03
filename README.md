@@ -4,7 +4,7 @@
 
 ## 概要
 
-このプログラムは、夏の夜の睡眠時における省エネ型エアコン自動制御システムです。室温を監視し、設定した閾値を超えた場合のみエアコンを短時間運転（30分）することで、快適な睡眠環境を保ちながら消費電力を抑制します。Ambientに室温データが定期的にアップロードされていることが前提になります。
+このプログラムは、夏の夜の睡眠時における省エネ型エアコン自動制御システムです。室温を監視し、設定した閾値を超えた場合のみエアコンを短時間運転（30分）することで、快適な睡眠環境を保ちながら消費電力を抑制します。制御には赤外線学習リモコンのeRemoteを使用します。また、Ambientに室温データが定期的にアップロードされていることが前提になります。
 
 ## 機能
 
@@ -103,14 +103,17 @@ cd sleep_condition_controller
 
 ### 2. 依存関係のインストール
 ```bash
-pip install ambient
+pip install git+https://github.com/TakehikoShimojima/ambient-python-lib.git
+pip install broadlink
 ```
 
-### 3. broadlink_cliのインストール
+### 3. broadlink_cliで情報を取得
 Broadlink社製IR学習リモコンの制御に必要です。
-```bash
-# インストール方法は使用するデバイスに応じて異なります
-```
+Pythonのbroadlinkライブラリに含まれますので、インストール後にbroadlink_cliコマンドを使用して、以下の情報を取得してください。broadlink_cliの使い方はコマンドのヘルプを参照してください。
+- broadlink_cliのフルパス
+- eRemoteのデバイス情報
+- お使いのエアコンの起動IRコード
+- お使いのエアコンの停止IRコード
 
 ### 4. 設定ファイルの編集
 `sleep_condition_controller.py`内の設定パラメータを環境に合わせて変更してください。
@@ -273,6 +276,7 @@ MIT License
 
 ## 更新履歴
 
+- v1.2.1: broadlink_cliの使い方の記載を修正
 - v1.2.0: 強制終了時間の設定機能追加
   - settings.iniで強制終了時間を設定可能
   - cronの設定例を複数のパターンで記載
