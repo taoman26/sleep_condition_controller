@@ -87,7 +87,7 @@ check_interval = 1800  # 30分（秒単位）
 
 ### 5. 実行制御設定
 ```python
-SETTINGS_FILE = "settings.ini"  # 設定ファイルパス
+SETTINGS_FILE = "/path/to/settings.ini"  # 設定ファイルのフルパス
 ```
 
 ### 6. スケジュール設定
