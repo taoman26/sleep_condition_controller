@@ -53,7 +53,7 @@ AIRCON_STOP_IRCODE = "/path/to/aircon_stop.ir"    # エアコン停止IRコー�
 LAST_ALERT_TIME_FILE = "/tmp/sleep_condition_last_time.txt"
 
 # 設定ファイルのパス
-SETTINGS_FILE = "settings.ini"
+SETTINGS_FILE = "/path/to/settings.ini"  # 設定ファイルのフルパス
 
 def get_ambient_data():
     """
