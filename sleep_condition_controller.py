@@ -57,22 +57,30 @@ SETTINGS_FILE = "/path/to/settings.ini"  # 設定ファイルのフルパス
 
 def get_ambient_data():
     """
-    Ambientから温度データを取得する関数（ambient-python-libを使用）
+    Ambientから温度・湿度データを取得する関数（ambient-python-libを使用）
     """
     try:
         # ambient-python-libを使用してデータを取得
         ambient = Ambient(AMBIENT_CHANNEL_ID, AMBIENT_WRITE_KEY, AMBIENT_READ_KEY)
         data = ambient.read(n=1)  # 最新の1件のデータを取得
-        
+
         if data and len(data) > 0:
             temperature = data[0].get('d1')  # d1が温度
-            return temperature
+            humidity = data[0].get('d2')     # d2が湿度
+            return temperature, humidity
         else:
             logger.error("Ambientからのデータが空です")
     except Exception as e:
         logger.error("データ取得中にエラーが発生しました: {}".format(str(e)))
-    
-    return None
+
+    return None, None
+
+def calculate_discomfort_index(temperature, humidity):
+    """
+    温度と湿度から不快指数（DI）を計算する関数
+    DI = 0.81T + 0.01H(0.99T - 14.3) + 46.3
+    """
+    return 0.81 * temperature + 0.01 * humidity * (0.99 * temperature - 14.3) + 46.3
 
 def control_aircon(action):
     """
@@ -103,31 +111,6 @@ def control_aircon(action):
     except Exception as e:
         logger.error("エアコン制御中にエラーが発生しました: {}".format(str(e)))
         return False
-
-def check_and_control():
-    """
-    温度を確認し、閾値チェックとエアコン制御を行う
-    """
-    temperature = get_ambient_data()
-    
-    if temperature is None:
-        logger.warning("温度データが取得できませんでした")
-        return
-    
-    # settings.iniから温度閾値を取得
-    temperature_threshold = get_temperature_threshold()
-    
-    logger.info("取得したデータ - 温度: {}℃".format(temperature))
-    
-    # 閾値を超えているか確認
-    if temperature >= temperature_threshold:
-        logger.info("閾値を超えました - 温度: {}℃ (閾値: {}℃)".format(temperature, temperature_threshold))
-        # エアコンを起動
-        if control_aircon(AIRCON_START_IRCODE):
-            # last_alert_timeを現在の時間に更新
-            save_last_alert_time(time.time())
-    else:
-        logger.info("閾値以下のため、プログラムを終了します")
 
 def get_last_alert_time():
     """
@@ -236,75 +219,85 @@ def get_force_stop_hour():
         logger.info("デフォルト値（9時）を使用します")
         return 9
 
-def get_temperature_threshold():
+def _get_di_threshold(option_name, default_value):
     """
-    settings.iniファイルから温度閾値を取得する関数
+    settings.iniファイルから不快指数閾値を取得する共通関数
     """
     try:
         config = configparser.ConfigParser()
-        
-        # settings.iniファイルが存在しない場合はデフォルト値（34.0℃）
-        if not os.path.exists(SETTINGS_FILE):
-            return 34.0
-        
-        # 設定ファイルを読み込み
-        config.read(SETTINGS_FILE)
-        
-        # temperatureセクションのthresholdパラメータを確認
-        if config.has_section('temperature') and config.has_option('temperature', 'threshold'):
-            threshold_value = config.get('temperature', 'threshold')
-            try:
-                threshold = float(threshold_value)
-                if threshold > 0:
-                    return threshold
-                else:
-                    logger.warning("温度閾値が不正です: {}. デフォルト値（34.0℃）を使用します".format(threshold))
-                    return 34.0
-            except ValueError:
-                logger.warning("温度閾値の値が不正です: {}. デフォルト値（34.0℃）を使用します".format(threshold_value))
-                return 34.0
-        else:
-            logger.info("温度閾値が設定されていません。デフォルト値（34.0℃）を使用します")
-            return 34.0
-            
-    except Exception as e:
-        logger.error("温度閾値の読み込み中にエラーが発生しました: {}".format(str(e)))
-        logger.info("デフォルト値（34.0℃）を使用します")
-        return 34.0
 
-def get_check_interval():
+        if not os.path.exists(SETTINGS_FILE):
+            return default_value
+
+        config.read(SETTINGS_FILE)
+
+        if config.has_section('discomfort_index') and config.has_option('discomfort_index', option_name):
+            value_str = config.get('discomfort_index', option_name)
+            try:
+                value = float(value_str)
+                if value > 0:
+                    return value
+                else:
+                    logger.warning("不快指数閾値({})が不正です: {}. デフォルト値（{}）を使用します".format(option_name, value, default_value))
+                    return default_value
+            except ValueError:
+                logger.warning("不快指数閾値({})の値が不正です: {}. デフォルト値（{}）を使用します".format(option_name, value_str, default_value))
+                return default_value
+        else:
+            logger.info("不快指数閾値({})が設定されていません。デフォルト値（{}）を使用します".format(option_name, default_value))
+            return default_value
+
+    except Exception as e:
+        logger.error("不快指数閾値({})の読み込み中にエラーが発生しました: {}".format(option_name, str(e)))
+        logger.info("デフォルト値（{}）を使用します".format(default_value))
+        return default_value
+
+def get_di_on_threshold():
     """
-    settings.iniファイルからチェック間隔を取得する関数
+    settings.iniファイルから不快指数のON閾値を取得する関数
+    """
+    return _get_di_threshold('on_threshold', 80.0)
+
+def get_di_off_threshold():
+    """
+    settings.iniファイルから不快指数のOFF閾値を取得する関数
+    """
+    return _get_di_threshold('off_threshold', 75.0)
+
+def get_max_runtime():
+    """
+    settings.iniファイルから安全装置用の最大稼働時間を取得する関数
+    不快指数がOFF閾値まで下がらなくても、この時間を超えたら強制的に停止する
     """
     try:
         config = configparser.ConfigParser()
-        
+
         # settings.iniファイルが存在しない場合はデフォルト値（1800秒 = 30分）
         if not os.path.exists(SETTINGS_FILE):
             return 1800
-        
+
         # 設定ファイルを読み込み
         config.read(SETTINGS_FILE)
-        
-        # intervalsセクションのcheck_intervalパラメータを確認
-        if config.has_section('intervals') and config.has_option('intervals', 'check_interval'):
-            interval_value = config.get('intervals', 'check_interval')
+
+        # safetyセクションのmax_runtimeパラメータを確認
+        if config.has_section('safety') and config.has_option('safety', 'max_runtime'):
+            runtime_value = config.get('safety', 'max_runtime')
             try:
-                interval = int(interval_value)
-                if interval > 0:
-                    return interval
+                runtime = int(runtime_value)
+                if runtime > 0:
+                    return runtime
                 else:
-                    logger.warning("チェック間隔が不正です: {}. デフォルト値（1800秒）を使用します".format(interval))
+                    logger.warning("最大稼働時間が不正です: {}. デフォルト値（1800秒）を使用します".format(runtime))
                     return 1800
             except ValueError:
-                logger.warning("チェック間隔の値が不正です: {}. デフォルト値（1800秒）を使用します".format(interval_value))
+                logger.warning("最大稼働時間の値が不正です: {}. デフォルト値（1800秒）を使用します".format(runtime_value))
                 return 1800
         else:
-            logger.info("チェック間隔が設定されていません。デフォルト値（1800秒）を使用します")
+            logger.info("最大稼働時間が設定されていません。デフォルト値（1800秒）を使用します")
             return 1800
-            
+
     except Exception as e:
-        logger.error("チェック間隔の読み込み中にエラーが発生しました: {}".format(str(e)))
+        logger.error("最大稼働時間の読み込み中にエラーが発生しました: {}".format(str(e)))
         logger.info("デフォルト値（1800秒）を使用します")
         return 1800
 
@@ -331,13 +324,13 @@ def main():
         
         # 強制終了時間を取得
         force_stop_hour = get_force_stop_hour()
-        
-        # settings.iniからチェック間隔を取得
-        check_interval = get_check_interval()
-        
+
+        # settings.iniから安全装置用の最大稼働時間を取得
+        max_runtime = get_max_runtime()
+
         # last_alert_timeの状態を確認
         last_alert_time = get_last_alert_time()
-        
+
         # 強制終了時間の場合は強制的にエアコンを停止
         if current_hour == force_stop_hour and last_alert_time > 0:
             logger.info("強制終了時間({}時)になりました。エアコンを強制停止します".format(force_stop_hour))
@@ -345,33 +338,53 @@ def main():
             control_aircon(AIRCON_STOP_IRCODE)
             logger.info("プログラムが正常に終了しました")
             return
-        
+
+        # Ambientから温度・湿度を取得し、不快指数を計算
+        temperature, humidity = get_ambient_data()
+
+        if temperature is None or humidity is None:
+            logger.warning("温度・湿度データが取得できませんでした")
+            return
+
+        discomfort_index = calculate_discomfort_index(temperature, humidity)
+        logger.info("取得したデータ - 温度: {}℃, 湿度: {}%, 不快指数: {:.1f}".format(temperature, humidity, discomfort_index))
+
+        # settings.iniから不快指数の閾値を取得
+        di_on_threshold = get_di_on_threshold()
+        di_off_threshold = get_di_off_threshold()
+
         if last_alert_time == 0:
-            # last_alert_timeが空（ファイルが存在しないか0）の場合
-            logger.info("last_alert_timeが空です。温度チェックとエアコン制御を実行します")
-            check_and_control()
+            # エアコンが停止中の場合
+            if discomfort_index >= di_on_threshold:
+                logger.info("不快指数がON閾値を超えました - {:.1f} (ON閾値: {:.1f})".format(discomfort_index, di_on_threshold))
+                # エアコンを起動
+                if control_aircon(AIRCON_START_IRCODE):
+                    # last_alert_timeを現在の時間に更新
+                    save_last_alert_time(current_time)
+            else:
+                logger.info("不快指数がON閾値未満のため、プログラムを終了します")
         else:
-            # last_alert_timeが空でない場合
+            # エアコンが稼働中の場合
             last_time_str = datetime.fromtimestamp(last_alert_time).strftime('%Y-%m-%d %H:%M:%S')
-            logger.info("前回のアラート時間: {}".format(last_time_str))
-            
-            # 前回のアラートからの経過時間を確認
+            logger.info("前回のON時刻: {}".format(last_time_str))
+
             elapsed_time = current_time - last_alert_time
-            
-            if elapsed_time >= check_interval:
-                # チェック間隔を超えている場合
-                logger.info("前回のアラートから{:.1f}分経過しました。エアコンを停止します".format(elapsed_time/60))
-                
-                # last_alert_timeをクリア
+
+            if discomfort_index <= di_off_threshold:
+                # 不快指数がOFF閾値まで下がった場合は停止
+                logger.info("不快指数がOFF閾値まで下がりました - {:.1f} (OFF閾値: {:.1f})。エアコンを停止します".format(discomfort_index, di_off_threshold))
                 clear_last_alert_time()
-                
-                # broadlink_cliでエアコンを停止
+                control_aircon(AIRCON_STOP_IRCODE)
+            elif elapsed_time >= max_runtime:
+                # 安全装置: 不快指数が下がらなくても最大稼働時間を超えたら停止
+                logger.info("最大稼働時間（{:.1f}分）に達しました。安全のためエアコンを停止します".format(max_runtime/60))
+                clear_last_alert_time()
                 control_aircon(AIRCON_STOP_IRCODE)
             else:
-                # チェック間隔内の場合
-                remaining_time = check_interval - elapsed_time
-                logger.info("前回のアラートから{:.1f}分経過。次回チェックまで{:.1f}分".format(elapsed_time/60, remaining_time/60))
-        
+                # 稼働継続
+                remaining_time = max_runtime - elapsed_time
+                logger.info("稼働継続中 - 不快指数: {:.1f} (OFF閾値: {:.1f})。最大稼働時間まで{:.1f}分".format(discomfort_index, di_off_threshold, remaining_time/60))
+
         logger.info("プログラムが正常に終了しました")
     except Exception as e:
         logger.error("予期せぬエラーが発生しました: {}".format(str(e)))
