@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-from ambient import Ambient
 import json
 import subprocess
+import urllib.request
+import urllib.error
 import time
 import logging
 import logging.handlers
@@ -38,10 +39,10 @@ except Exception as e:
     logger = logging.getLogger("SleepCondition")
 
 # 設定パラメータ
-# Ambient設定
-AMBIENT_CHANNEL_ID = ""  # ここにあなたのAmbientのチャネルIDを設定
-AMBIENT_WRITE_KEY = ""   # ここにあなたのAmbientのライトキーを設定
-AMBIENT_READ_KEY = ""    # ここにあなたのAmbientのリードキーを設定
+# ThingSpeak設定
+THINGSPEAK_CHANNEL_ID = ""     # ここにあなたのThingSpeakのチャネルIDを設定
+THINGSPEAK_READ_API_KEY = ""   # ここにあなたのThingSpeakのリードAPIキーを設定
+THINGSPEAK_API_URL = "https://api.thingspeak.com/channels/{}/feeds.json"  # ThingSpeak APIのURL
 
 # broadlink_cli設定
 BROADLINK_CLI_PATH = "/usr/local/bin/broadlink_cli"  # broadlink_cliのフルパス
@@ -55,21 +56,34 @@ LAST_ALERT_TIME_FILE = "/tmp/sleep_condition_last_time.txt"
 # 設定ファイルのパス
 SETTINGS_FILE = "/path/to/settings.ini"  # 設定ファイルのフルパス
 
-def get_ambient_data():
+def get_thingspeak_data():
     """
-    Ambientから温度・湿度データを取得する関数（ambient-python-libを使用）
+    ThingSpeakから温度・湿度データを取得する関数
+    field1が温度、field2が湿度
     """
     try:
-        # ambient-python-libを使用してデータを取得
-        ambient = Ambient(AMBIENT_CHANNEL_ID, AMBIENT_WRITE_KEY, AMBIENT_READ_KEY)
-        data = ambient.read(n=1)  # 最新の1件のデータを取得
+        url = "{}?api_key={}&results=1".format(
+            THINGSPEAK_API_URL.format(THINGSPEAK_CHANNEL_ID), THINGSPEAK_READ_API_KEY
+        )
 
-        if data and len(data) > 0:
-            temperature = data[0].get('d1')  # d1が温度
-            humidity = data[0].get('d2')     # d2が湿度
-            return temperature, humidity
+        with urllib.request.urlopen(url, timeout=10) as response:
+            body = response.read().decode('utf-8')
+
+        result = json.loads(body)
+        feeds = result.get('feeds')
+
+        if feeds and len(feeds) > 0:
+            latest = feeds[-1]
+            temperature = latest.get('field1')  # field1が温度
+            humidity = latest.get('field2')     # field2が湿度
+
+            if temperature is None or humidity is None:
+                logger.error("ThingSpeakのデータにfield1またはfield2が含まれていません")
+                return None, None
+
+            return float(temperature), float(humidity)
         else:
-            logger.error("Ambientからのデータが空です")
+            logger.error("ThingSpeakからのデータが空です")
     except Exception as e:
         logger.error("データ取得中にエラーが発生しました: {}".format(str(e)))
 
@@ -313,8 +327,8 @@ def main():
         return
     
     # 設定情報の確認
-    if not AMBIENT_CHANNEL_ID or not AMBIENT_READ_KEY:
-        logger.error("Ambient設定が不完全です。AMBIENT_CHANNEL_IDとAMBIENT_READ_KEYを設定してください。")
+    if not THINGSPEAK_CHANNEL_ID or not THINGSPEAK_READ_API_KEY:
+        logger.error("ThingSpeak設定が不完全です。THINGSPEAK_CHANNEL_IDとTHINGSPEAK_READ_API_KEYを設定してください。")
         return
     
     try:
@@ -339,8 +353,8 @@ def main():
             logger.info("プログラムが正常に終了しました")
             return
 
-        # Ambientから温度・湿度を取得し、不快指数を計算
-        temperature, humidity = get_ambient_data()
+        # ThingSpeakから温度・湿度を取得し、不快指数を計算
+        temperature, humidity = get_thingspeak_data()
 
         if temperature is None or humidity is None:
             logger.warning("温度・湿度データが取得できませんでした")

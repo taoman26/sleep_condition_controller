@@ -4,11 +4,11 @@
 
 ## 概要
 
-このプログラムは、夏の夜の睡眠時における省エネ型エアコン自動制御システムです。室温と湿度から算出した**不快指数（DI）**を監視し、ON閾値を超えたときのみエアコンを起動、OFF閾値まで下がったら停止するヒステリシス制御を行うことで、快適な睡眠環境を保ちながら消費電力を抑制します。制御には赤外線学習リモコンのeRemoteを使用します。また、Ambientに温度・湿度データが定期的にアップロードされていることが前提になります。
+このプログラムは、夏の夜の睡眠時における省エネ型エアコン自動制御システムです。室温と湿度から算出した**不快指数（DI）**を監視し、ON閾値を超えたときのみエアコンを起動、OFF閾値まで下がったら停止するヒステリシス制御を行うことで、快適な睡眠環境を保ちながら消費電力を抑制します。制御には赤外線学習リモコンのeRemoteを使用します。また、ThingSpeakに温度・湿度データが定期的にアップロードされていることが前提になります。
 
 ## 機能
 
-- **温度・湿度監視**: Ambientサービスから最新の温度・湿度データを取得
+- **温度・湿度監視**: ThingSpeakサービスから最新の温度・湿度データを取得
 - **不快指数によるスマート制御**: 温度と湿度から不快指数を算出し、ON/OFFで異なる閾値によるヒステリシス制御でエアコンをON/OFF
 - **安全装置**: 不快指数が下がらない場合でも、最大稼働時間を超えたら強制的にエアコンを停止
 - **実行制御**: settings.iniファイルによるプログラム実行の有効/無効制御
@@ -39,14 +39,14 @@ ON閾値とOFF閾値を同じ値にすると、停止直後にすぐ再起動し
 - `run = 1`の場合：以下の処理を継続
 
 ### 1. last_alert_timeが空（エアコン停止中）の場合
-- Ambientから温度・湿度を取得し、不快指数を算出
+- ThingSpeakから温度・湿度を取得し、不快指数を算出
 - 不快指数がON閾値（デフォルト80.0）以上の場合：
   - エアコンを起動
   - 現在時刻をlast_alert_timeに保存
 - ON閾値未満の場合：プログラム終了
 
 ### 2. last_alert_timeが存在する（エアコン稼働中）場合
-- Ambientから温度・湿度を取得し、不快指数を算出
+- ThingSpeakから温度・湿度を取得し、不快指数を算出
 - 不快指数がOFF閾値（デフォルト75.0）以下に下がった場合：
   - エアコンを停止
   - last_alert_timeをクリア
@@ -65,9 +65,9 @@ ON閾値とOFF閾値を同じ値にすると、停止直後にすぐ再起動し
 
 ### Pythonライブラリ
 ```bash
-pip install git+https://github.com/TakehikoShimojima/ambient-python-lib.git
 pip install broadlink
 ```
+ThingSpeakへのデータ取得はPython標準ライブラリ（`urllib`）のみを使用しているため、追加のライブラリは不要です。
 
 ### 外部ツール
 - broadlink_cli: Broadlink社製IR学習リモコン制御用CLI
@@ -75,12 +75,12 @@ pip install broadlink
 
 ## 設定
 
-### 1. Ambient設定
+### 1. ThingSpeak設定
 ```python
-AMBIENT_CHANNEL_ID = "your_channel_id"    # AmbientチャネルID
-AMBIENT_WRITE_KEY = "your_write_key"      # Ambientライトキー
-AMBIENT_READ_KEY = "your_read_key"        # Ambientリードキー
+THINGSPEAK_CHANNEL_ID = "your_channel_id"        # ThingSpeakチャネルID
+THINGSPEAK_READ_API_KEY = "your_read_api_key"    # ThingSpeakリードAPIキー
 ```
+ThingSpeakのチャネルには、field1に温度、field2に湿度のデータが定期的にアップロードされている必要があります。
 
 ### 2. 不快指数閾値設定
 settings.iniファイルで設定します：
@@ -127,7 +127,6 @@ cd sleep_condition_controller
 
 ### 2. 依存関係のインストール
 ```bash
-pip install git+https://github.com/TakehikoShimojima/ambient-python-lib.git
 pip install broadlink
 ```
 
@@ -275,10 +274,10 @@ sleep_condition_controller/
 
 ### よくある問題
 
-1. **Ambientからデータが取得できない**
-   - チャネルID、ライトキー、リードキーの確認
+1. **ThingSpeakからデータが取得できない**
+   - チャネルID、リードAPIキーの確認
    - ネットワーク接続の確認
-   - 温度（d1）だけでなく湿度（d2）もセンサーから送信されているか確認（湿度が無いと不快指数が計算できません）
+   - 温度（field1）だけでなく湿度（field2）もセンサーから送信されているか確認（湿度が無いと不快指数が計算できません）
 
 2. **broadlink_cliが動作しない**
    - パスの確認
@@ -331,6 +330,9 @@ Michihiko Mikami
 
 ## 更新履歴
 
+- v1.4.0: データ取得元をThingSpeakに変更
+  - AmbientからThingSpeakへ移行（field1=温度、field2=湿度）
+  - 外部ライブラリ（ambient-python-lib）への依存を廃止し、標準ライブラリのみでデータ取得
 - v1.3.0: 不快指数によるスマート制御に変更
   - 温度単独の閾値制御から、温度・湿度から算出した不快指数によるヒステリシス制御（ON/OFF閾値）に変更
   - 固定タイマー方式を廃止し、不快指数がOFF閾値まで下がったら停止する方式に変更
